@@ -1,54 +1,94 @@
 /*
-  Import getAllAppointments to fetch appointments from the backend
-  Import createPatientRow to generate a table row for each patient appointment
-
-
-  Get the table body where patient rows will be added
-  Initialize selectedDate with today's date in 'YYYY-MM-DD' format
-  Get the saved token from localStorage (used for authenticated API calls)
-  Initialize patientName to null (used for filtering by name)
-
-
-  Add an 'input' event listener to the search bar
-  On each keystroke:
-    - Trim and check the input value
-    - If not empty, use it as the patientName for filtering
-    - Else, reset patientName to "null" (as expected by backend)
-    - Reload the appointments list with the updated filter
-
-
-  Add a click listener to the "Today" button
-  When clicked:
-    - Set selectedDate to today's date
-    - Update the date picker UI to match
-    - Reload the appointments for today
-
-
-  Add a change event listener to the date picker
-  When the date changes:
-    - Update selectedDate with the new value
-    - Reload the appointments for that specific date
-
-
-  Function: loadAppointments
-  Purpose: Fetch and display appointments based on selected date and optional patient name
-
-  Step 1: Call getAllAppointments with selectedDate, patientName, and token
-  Step 2: Clear the table body content before rendering new rows
-
-  Step 3: If no appointments are returned:
-    - Display a message row: "No Appointments found for today."
-
-  Step 4: If appointments exist:
-    - Loop through each appointment and construct a 'patient' object with id, name, phone, and email
-    - Call createPatientRow to generate a table row for the appointment
-    - Append each row to the table body
-
-  Step 5: Catch and handle any errors during fetch:
-    - Show a message row: "Error loading appointments. Try again later."
-
-
-  When the page is fully loaded (DOMContentLoaded):
-    - Call renderContent() (assumes it sets up the UI layout)
-    - Call loadAppointments() to display today's appointments by default
+  This script handles the doctor dashboard functionality:
+  - Loads and displays scheduled appointments
+  - Allows filtering by patient name or date
 */
+
+document.addEventListener("DOMContentLoaded", () => {
+  renderContent();
+  loadAppointments();
+
+  document.getElementById("searchBar").addEventListener("input", onSearchInput);
+  document.getElementById("todayButton").addEventListener("click", onTodayButtonClick);
+  document.getElementById("datePicker").addEventListener("change", onDatePickerChange);
+});
+
+let selectedDate = getToday();
+let patientName = null;
+
+function getToday() {
+  const d = new Date();
+  return d.toISOString().split("T")[0];
+}
+
+function onSearchInput(event) {
+  const value = event.target.value.trim();
+  patientName = value ? value : null;
+  loadAppointments();
+}
+
+function onTodayButtonClick() {
+  selectedDate = getToday();
+  document.getElementById("datePicker").value = selectedDate;
+  loadAppointments();
+}
+
+function onDatePickerChange(event) {
+  selectedDate = event.target.value;
+  loadAppointments();
+}
+
+async function loadAppointments() {
+  const token = localStorage.getItem("token");
+  const tbody = document.getElementById("patientTableBody");
+  tbody.innerHTML = "";
+
+  try {
+    const appointments = await getAllAppointments(selectedDate, patientName, token);
+
+    if (!appointments || appointments.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5">No Appointments found for today.</td></tr>`;
+    } else {
+      appointments.forEach(app => {
+        const patient = {
+          id: app.patientId,
+          name: app.patientName,
+          phone: app.patientPhone,
+          email: app.patientEmail
+        };
+        tbody.appendChild(createPatientRow(patient, app));
+      });
+    }
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="5">Error loading appointments. Try again later.</td></tr>`;
+  }
+}
+
+// Placeholder API/service functions
+async function getAllAppointments(date, patientName, token) {
+  const url = `/appointments/${date || "null"}/${patientName || "null"}/${token}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Error fetching appointments");
+  return await response.json();
+}
+
+// Example row generator
+function createPatientRow(patient, appointment) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td>${patient.id}</td>
+    <td>${patient.name}</td>
+    <td>${patient.phone}</td>
+    <td>${patient.email}</td>
+    <td>
+      <button onclick="viewPrescription(${appointment.id})">View</button>
+    </td>
+  `;
+  return tr;
+}
+
+// Example prescription viewer (implement as needed)
+function viewPrescription(appointmentId) {
+  // Open modal and fetch prescription info for the appointmentId
+  alert("Prescription view for appointment: " + appointmentId);
+}
